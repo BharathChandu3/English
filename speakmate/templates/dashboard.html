@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block page_title %}Learning Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Summary Row -->
+<section class="stats-grid">
+    <div class="glass-card stat-card">
+        <div class="stat-icon grammar">
+            <i class="fa-solid fa-spell-check"></i>
+        </div>
+        <div class="stat-details">
+            <h3>Grammar Score</h3>
+            <p id="grammarScoreVal">{{ progress.grammar_score }}%</p>
+        </div>
+    </div>
+    
+    <div class="glass-card stat-card">
+        <div class="stat-icon vocab">
+            <i class="fa-solid fa-book-open"></i>
+        </div>
+        <div class="stat-details">
+            <h3>Vocab Score</h3>
+            <p id="vocabScoreVal">{{ progress.vocab_score }}%</p>
+        </div>
+    </div>
+    
+    <div class="glass-card stat-card">
+        <div class="stat-icon speaking">
+            <i class="fa-solid fa-volume-high"></i>
+        </div>
+        <div class="stat-details">
+            <h3>Speaking Score</h3>
+            <p id="speakingScoreVal">{{ progress.speaking_score }}%</p>
+        </div>
+    </div>
+    
+    <div class="glass-card stat-card">
+        <div class="stat-icon confidence">
+            <i class="fa-solid fa-gauge-high"></i>
+        </div>
+        <div class="stat-details">
+            <h3>Confidence Score</h3>
+            <p id="confidenceScoreVal">{{ progress.confidence_score }}%</p>
+        </div>
+    </div>
+</section>
+
+<!-- Dashboard Main Grid (Chart and Side Actions) -->
+<div class="dashboard-grid" style="margin-top: 24px;">
+    <!-- Historical Line Charts -->
+    <div class="glass-card chart-card">
+        <div class="chart-header">
+            <h3 style="font-size: 16px; font-weight: 700;">Progress Chart</h3>
+            <span style="font-size: 12px; color: var(--text-secondary);">Last 15 Days</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="progressLineChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Right Panels: Achievements & Quick Actions -->
+    <div class="quick-links-panel">
+        <div class="glass-card" style="padding: 20px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px;">Quick Tasks</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a href="{{ url_for('views.chat') }}" class="quick-link-item glass-card">
+                    <i class="fa-solid fa-comments"></i>
+                    <div class="quick-link-text">
+                        <h4>AI Coach Chat</h4>
+                        <p>Discuss general topics and review errors</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('views.lesson') }}" class="quick-link-item glass-card">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                    <div class="quick-link-text">
+                        <h4>Daily Lesson</h4>
+                        <p>Generate vocabulary and dialogue scripts</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('views.grammar') }}" class="quick-link-item glass-card">
+                    <i class="fa-solid fa-spell-check"></i>
+                    <div class="quick-link-text">
+                        <h4>Grammar Class</h4>
+                        <p>Complete quizzes and study rules</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <div class="glass-card" style="padding: 20px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px;">Unlocked Achievements</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;" id="achievementsList">
+                {% if achievements %}
+                    {% for a in achievements %}
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid var(--border-glass);">
+                        <span style="font-size: 22px;">{{ a.badge_icon }}</span>
+                        <div>
+                            <h4 style="font-size: 14px; font-weight: 600;">{{ a.title }}</h4>
+                            <p style="font-size: 11px; color: var(--text-secondary);">{{ a.description }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="font-size: 13px; color: var(--text-secondary); text-align: center; padding: 15px;">Unlock badges by studying and completing streaks!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

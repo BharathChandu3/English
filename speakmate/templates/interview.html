@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block page_title %}Mock Interview Prep{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Left Workspace: Mock interview room -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px;">Choose Interview Type</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;" id="modeSelectors">
+                <button class="btn btn-secondary" onclick="startInterview('HR')">
+                    <i class="fa-solid fa-user-tie" style="color: var(--color-primary);"></i> HR Interview
+                </button>
+                <button class="btn btn-secondary" onclick="startInterview('Technical')">
+                    <i class="fa-solid fa-code" style="color: var(--color-primary);"></i> Tech Interview
+                </button>
+                <button class="btn btn-secondary" onclick="startInterview('Behavioral')">
+                    <i class="fa-solid fa-people-arrows" style="color: var(--color-primary);"></i> Behavioral
+                </button>
+                <button class="btn btn-secondary" onclick="startInterview('Communication')">
+                    <i class="fa-solid fa-comments" style="color: var(--color-primary);"></i> Communication
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Workspace inside Mock Room -->
+        <div class="glass-card chat-window" style="display: none;" id="interviewRoom">
+            <div class="chat-messages" id="interviewTranscript">
+                <!-- Dialogue bubbles -->
+            </div>
+            
+            <div class="typing-indicator" id="interviewLoader" style="display: none; margin: 0 24px 16px 24px;">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">Interviewer is listening...</span>
+            </div>
+            
+            <div class="chat-input-bar">
+                <button class="mic-btn" id="interviewMicBtn" title="Speak Response (Speech to Text)">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+                <input type="text" id="interviewInput" class="chat-input" placeholder="Say or type your answer here..." autocomplete="off">
+                <button class="btn btn-primary" id="interviewSendBtn">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Answer
+                </button>
+            </div>
+        </div>
+
+        <!-- Placeholder splash when not in session -->
+        <div class="glass-card" id="interviewPlaceholder" style="padding: 60px 40px; text-align: center;">
+            <i class="fa-solid fa-briefcase" style="font-size: 54px; color: var(--text-secondary); margin-bottom: 20px;"></i>
+            <h3>Enter Mock Room</h3>
+            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 8px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                Select an interview mode above to begin a mock interview. The coach will ask questions, score each reply, and review professionalism.
+            </p>
+        </div>
+    </div>
+
+    <!-- Right Workspace: Scoring metrics history -->
+    <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; gap: 15px;">
+        <h3 style="font-size: 16px; font-weight: 700;">Performance metrics</h3>
+        <div id="interviewMetricsPanel" style="display: flex; flex-direction: column; gap: 15px;">
+            <!-- Live gauge scores shown here during active session -->
+            <div style="text-align: center; padding: 30px 10px; color: var(--text-secondary);">
+                <i class="fa-solid fa-square-poll-vertical" style="font-size: 32px; margin-bottom: 10px;"></i>
+                <p style="font-size: 13px;">Scores for confidence, professional structure, and grammar rules appear here once you answer.</p>
+            </div>
+        </div>
+        
+        <h3 style="font-size: 15px; font-weight: 700; margin-top: 15px;">Historical Scores</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto;" id="interviewHistoryList">
+            {% if scores %}
+                {% for s in scores %}
+                <div class="glass-card" style="padding: 10px 14px; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>{{ s.mode }} Mode</strong>
+                        <span style="color: var(--color-primary); font-weight: 700;">Score: {{ s.score }}%</span>
+                    </div>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                        Grammar: {{ s.grammar }} | Conf: {{ s.confidence }} | Prof: {{ s.professionalism }}
+                    </p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px;">No completed interviews recorded.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/interview.js') }}"></script>
+{% endblock %}

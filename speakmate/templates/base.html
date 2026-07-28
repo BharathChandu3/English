@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SpeakMate AI - English Speaking Coach{% endblock %}</title>
+    <!-- Favicon link can go here, using a general fallback icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        {% if session.get('user_id') %}
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-microphone-lines"></i>
+                <h1>SpeakMate AI</h1>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="{% if request.endpoint == 'views.dashboard' %}active{% endif %}">
+                    <a href="{{ url_for('views.dashboard') }}"><i class="fa-solid fa-house"></i> Dashboard</a>
+                </li>
+                <li class="{% if request.endpoint == 'views.chat' %}active{% endif %}">
+                    <a href="{{ url_for('views.chat') }}"><i class="fa-solid fa-comments"></i> Conversational AI</a>
+                </li>
+                <li class="{% if request.endpoint == 'views.lesson' %}active{% endif %}">
+                    <a href="{{ url_for('views.lesson') }}"><i class="fa-solid fa-chalkboard-user"></i> Daily Lessons</a>
+                </li>
+                <li class="{% if request.endpoint == 'views.grammar' %}active{% endif %}">
+                    <a href="{{ url_for('views.grammar') }}"><i class="fa-solid fa-spell-check"></i> Grammar Coach</a>
+                </li>
+                <li class="{% if request.endpoint == 'views.vocab' %}active{% endif %}">
+                    <a href="{{ url_for('views.vocab') }}"><i class="fa-solid fa-book-open"></i> Vocab Builder</a>
+                </li>
+                <li class="{% if request.endpoint == 'views.interview' %}active{% endif %}">
+                    <a href="{{ url_for('views.interview') }}"><i class="fa-solid fa-briefcase"></i> Mock Interview</a>
+                </li>
+                <li class="{% if request.endpoint == 'views.challenges' %}active{% endif %}">
+                    <a href="{{ url_for('views.challenges') }}"><i class="fa-solid fa-trophy"></i> Challenges</a>
+                </li>
+                <li class="{% if request.endpoint == 'views.profile' %}active{% endif %}">
+                    <a href="{{ url_for('views.profile') }}"><i class="fa-solid fa-user-gear"></i> Profile Settings</a>
+                </li>
+            </ul>
+            <div class="sidebar-user">
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-avatar">
+                        {{ (session.get('username') or 'User')[0].upper() }}
+                    </div>
+                    <div>
+                        <div class="sidebar-user-name">{{ session.get('username') or 'User' }}</div>
+                        <div class="sidebar-user-role">{{ session.get('target_level', 'Intermediate') }}</div>
+                    </div>
+                </div>
+                <button class="theme-toggle-btn" id="themeToggle" title="Toggle Theme">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </aside>
+        {% endif %}
+
+        <!-- Main Content Area -->
+        <div class="main-wrapper" style="{% if not session.get('user_id') %}margin-left: 0;{% endif %}">
+            {% if session.get('user_id') %}
+            <header class="topbar">
+                <button class="mobile-menu-toggle" id="menuToggle">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="page-title">
+                    {% block page_title %}Dashboard{% endblock %}
+                </div>
+                <div class="topbar-actions">
+                    <div class="streak-badge" title="Daily Streak">
+                        <i class="fa-solid fa-fire"></i>
+                        <span id="streakCount">{{ session.get('streak_count') or 0 }}</span> Days
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </a>
+                </div>
+            </header>
+            {% endif %}
+
+            <!-- Core App Pages Rendered Here -->
+            <main class="content-frame">
+                <!-- Flask Flash Messages System -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    <div class="flash-messages-container" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                      {% for category, message in messages %}
+                        <div class="glass-card" style="padding: 12px 20px; border-left: 4px solid {% if category == 'error' %}var(--color-danger){% else %}var(--color-success){% endif %}; font-size: 14px; font-weight: 500; display: flex; justify-content: space-between; align-items: center;">
+                          <span>{{ message }}</span>
+                          <button onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; margin-left: 10px;">&times;</button>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Feedback Drawer Overlay (global component used in Chat, Interviews, etc.) -->
+    <div class="feedback-overlay" id="feedbackDrawer">
+        <div class="feedback-header">
+            <h3 class="feedback-title">Linguistic Analysis</h3>
+            <button class="close-feedback-btn" id="closeFeedbackDrawer">&times;</button>
+        </div>
+        <div id="feedbackContent">
+            <!-- Populated via AJAX -->
+        </div>
+    </div>
+
+    <!-- Script Imports -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

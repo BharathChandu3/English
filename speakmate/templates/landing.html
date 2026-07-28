@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}SpeakMate AI - Your AI English Tutor{% endblock %}
+
+{% block content %}
+<div class="landing-hero">
+    <h2 class="landing-title">Master Spoken English with Your Personal AI Coach</h2>
+    <p class="landing-subtitle">
+        SpeakMate AI behaves like a human tutor, analyzing your speech patterns, fixing grammar slip-ups, enhancing your vocabulary, and conducting mock interviews to build your speaking confidence!
+    </p>
+    <div class="landing-actions">
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Start Your Journey (Free)</a>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-secondary"><i class="fa-solid fa-right-to-bracket"></i> Log In to Account</a>
+    </div>
+
+    <!-- Feature Grid Section -->
+    <div class="stats-grid" style="margin-top: 80px; width: 100%; max-width: 1000px; text-align: left;">
+        <div class="glass-card stat-card">
+            <div class="stat-icon speaking">
+                <i class="fa-solid fa-microphone"></i>
+            </div>
+            <div class="stat-details">
+                <h3>Voice & Speech</h3>
+                <p style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-top: 6px;">
+                    Speak naturally. The coach transcribes, replies, and provides real-time pronunciation corrections.
+                </p>
+            </div>
+        </div>
+        
+        <div class="glass-card stat-card">
+            <div class="stat-icon grammar">
+                <i class="fa-solid fa-spell-check"></i>
+            </div>
+            <div class="stat-details">
+                <h3>Smart Corrections</h3>
+                <p style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-top: 6px;">
+                    Receive instant polite corrections showing mistakes, explanation rules, and a better native version.
+                </p>
+            </div>
+        </div>
+
+        <div class="glass-card stat-card">
+            <div class="stat-icon confidence">
+                <i class="fa-solid fa-briefcase"></i>
+            </div>
+            <div class="stat-details">
+                <h3>Interview Prep</h3>
+                <p style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-top: 6px;">
+                    Practice mock Technical, HR, and Behavioral job interviews with scoring and recommendations.
+                </p>
+            </div>
+        </div>
+
+        <div class="glass-card stat-card">
+            <div class="stat-icon vocab">
+                <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <div class="stat-details">
+                <h3>Grammar & Vocabulary</h3>
+                <p style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-top: 6px;">
+                    Complete daily lessons and dynamic quizzes to test word knowledge and rules of tenses or voice.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

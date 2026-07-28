@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block page_title %}Grammar Teacher{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Left Panel: Topics grid -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 15px;">Grammar Modules</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;">
+                {% set topics = ['Tenses', 'Articles', 'Prepositions', 'Voice', 'Narration', 'Conditionals', 'Modals', 'Punctuation'] %}
+                {% for topic in topics %}
+                <button class="btn btn-secondary grammar-topic-btn {% if loop.first %}active-topic{% endif %}" 
+                        style="padding: 12px; font-size: 13px; text-align: center; display: flex; flex-direction: column; gap: 6px; border-radius: 12px;"
+                        onclick="loadGrammarTopic('{{ topic }}', this)">
+                    <i class="fa-solid fa-book" style="color: var(--color-primary); font-size: 16px;"></i>
+                    <span>{{ topic }}</span>
+                    {% if grammar_progress and topic in grammar_progress %}
+                    <span style="font-size: 10px; background: rgba(16, 185, 129, 0.15); color: var(--color-success); padding: 2px 6px; border-radius: 8px;">
+                        {{ grammar_progress[topic].score }}%
+                    </span>
+                    {% endif %}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Generated Lesson Explanation -->
+        <div class="glass-card" style="padding: 28px; display: none;" id="grammarExplanationCard">
+            <h2 id="grammarTopicTitle" style="font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Tenses</h2>
+            <div id="grammarExplanationContent" style="font-size: 14px; line-height: 1.6; color: var(--text-primary); margin-bottom: 20px;">
+                <!-- Explanation text -->
+            </div>
+            
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--color-primary); margin-bottom: 10px;">Usage Examples</h3>
+            <ul id="grammarExamplesList" style="padding-left: 20px; font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; gap: 8px;">
+                <!-- Examples -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Right Panel: Interactive quiz block -->
+    <div class="glass-card" style="padding: 24px; min-height: 400px; display: flex; flex-direction: column;" id="grammarQuizCard">
+        <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-circle-question" style="color: var(--color-warning);"></i> Grammar Quiz
+        </h3>
+        
+        <div id="grammarQuizPlaceholder" style="text-align: center; padding: 60px 20px; margin: auto;">
+            <i class="fa-solid fa-spell-check" style="font-size: 44px; color: var(--text-secondary); margin-bottom: 12px;"></i>
+            <h4>Choose a module to start</h4>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 6px;">We will explain the concept and run a testing quiz.</p>
+        </div>
+
+        <div id="grammarQuizContent" style="display: none; flex: 1; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <span style="font-size: 12px; color: var(--text-secondary);" id="grammarQuestionIndicator">Question 1 of 3</span>
+                    <span style="font-size: 12px; color: var(--color-primary); font-weight: 700;" id="grammarQuizScore">Score: 0</span>
+                </div>
+                
+                <p id="grammarQuestionText" style="font-size: 15px; font-weight: 600; margin-bottom: 20px;">Question statement...</p>
+                <div id="grammarOptionsContainer">
+                    <!-- Options buttons -->
+                </div>
+            </div>
+            
+            <div id="grammarQuizFeedback" class="better-phrase-box" style="display: none; margin-top: 20px; font-size: 13px;">
+                <!-- Correct/incorrect status & tips -->
+            </div>
+            
+            <button class="btn btn-primary" id="grammarNextQuestionBtn" style="margin-top: 20px; width: 100%; display: none;">
+                Next Question <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/grammar.js') }}"></script>
+{% endblock %}

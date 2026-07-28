@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block page_title %}Conversational Coach{% endblock %}
+
+{% block content %}
+<div class="glass-card chat-window">
+    <!-- Chat Transcript Area -->
+    <div class="chat-messages" id="chatTranscript">
+        {% for chat in chat_logs %}
+        <div class="chat-bubble {{ chat.role }}">
+            <p>{{ chat.content }}</p>
+            {% if chat.role == 'assistant' and chat.analysis_json %}
+            <button class="chat-feedback-btn" onclick="viewChatFeedback('{{ chat.id }}')">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Review Feedback
+            </button>
+            <!-- Embed raw JSON for JS handler retrieval -->
+            <script type="application/json" id="feedback-data-{{ chat.id }}">
+                {{ chat.analysis_json | safe }}
+            </script>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Typing Loader Animation -->
+    <div class="typing-indicator" id="chatLoader" style="display: none; margin: 0 24px 16px 24px;">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">Coach is analyzing...</span>
+    </div>
+
+    <!-- Chat Control Bar -->
+    <div class="chat-input-bar">
+        <button class="mic-btn" id="micBtn" title="Speak to Coach (Web Speech API)">
+            <i class="fa-solid fa-microphone"></i>
+        </button>
+        
+        <input type="text" id="chatInput" class="chat-input" placeholder="Type your response here..." autocomplete="off">
+        
+        <button class="btn btn-primary" id="sendBtn">
+            <i class="fa-solid fa-paper-plane"></i> Send
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

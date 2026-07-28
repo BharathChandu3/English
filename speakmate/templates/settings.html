@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block page_title %}App Settings Center{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="padding: 32px; max-width: 600px; margin: 0 auto;">
+    <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 20px;">Voice Coaching Settings</h3>
+    
+    <div class="form-group">
+        <label for="ttsRate">Pronunciation Speaking Speed</label>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <input type="range" id="ttsRate" min="0.5" max="2.0" step="0.1" value="1.0" style="flex: 1; accent-color: var(--color-primary);">
+            <span id="rateValue" style="font-weight: 700; min-width: 40px;">1.0x</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Adjust how fast the AI coach speaks to you.</p>
+    </div>
+
+    <div class="form-group" style="margin-top: 20px;">
+        <label for="ttsPitch">Pronunciation Pitch Tone</label>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <input type="range" id="ttsPitch" min="0.5" max="1.5" step="0.1" value="1.0" style="flex: 1; accent-color: var(--color-primary);">
+            <span id="pitchValue" style="font-weight: 700; min-width: 40px;">1.0</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Alter speech pitch mapping.</p>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 30px 0;">
+
+    <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">Export Study Metrics</h3>
+    <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px;">
+        Download your vocabulary logs, grammatical scores, and streak history records.
+    </p>
+    
+    <button class="btn btn-secondary" onclick="exportData()" style="width: 100%;">
+        <i class="fa-solid fa-cloud-arrow-down"></i> Export learning history as JSON
+    </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const rateSlider = document.getElementById("ttsRate");
+        const rateVal = document.getElementById("rateValue");
+        
+        const pitchSlider = document.getElementById("ttsPitch");
+        const pitchVal = document.getElementById("pitchValue");
+        
+        // Load initial states
+        const savedRate = localStorage.getItem("tts_rate") || "1.0";
+        const savedPitch = localStorage.getItem("tts_pitch") || "1.0";
+        
+        rateSlider.value = savedRate;
+        rateVal.innerText = savedRate + "x";
+        
+        pitchSlider.value = savedPitch;
+        pitchVal.innerText = savedPitch;
+        
+        rateSlider.addEventListener("input", (e) => {
+            const val = e.target.value;
+            rateVal.innerText = val + "x";
+            localStorage.setItem("tts_rate", val);
+        });
+        
+        pitchSlider.addEventListener("input", (e) => {
+            const val = e.target.value;
+            pitchVal.innerText = val;
+            localStorage.setItem("tts_pitch", val);
+        });
+    });
+
+    window.exportData = function() {
+        fetch("/api/progress/history")
+            .then(res => res.json())
+            .then(data => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "speakmate_study_metrics.json";
+                a.click();
+            })
+            .catch(err => alert("Could not construct export data."));
+    };
+</script>
+{% endblock %}

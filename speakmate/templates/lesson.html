@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block page_title %}Daily Lesson Room{% endblock %}
+
+{% block content %}
+<div class="stats-grid" style="margin-bottom: 24px;">
+    <!-- Lesson Config Selection Card -->
+    <div class="glass-card" style="padding: 24px; grid-column: span 3;">
+        <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 15px;">Setup Your Lesson</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
+                <label for="lessonDifficulty">Level</label>
+                <select id="lessonDifficulty" class="form-select">
+                    <option value="Beginner">Beginner (Basic expressions)</option>
+                    <option value="Intermediate" selected>Intermediate (Conversational fluidity)</option>
+                    <option value="Advanced">Advanced (Business/Nuanced nuance)</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
+                <label for="lessonTopic">Choose Topic</label>
+                <select id="lessonTopic" class="form-select">
+                    <option value="Travel" selected>Travel & Navigation</option>
+                    <option value="College">College & Studies</option>
+                    <option value="Shopping">Shopping & Negotiation</option>
+                    <option value="Technology">Technology & Software</option>
+                    <option value="Business">Business English</option>
+                    <option value="Meetings">Meetings & Standups</option>
+                    <option value="Restaurants">Restaurants & Ordering</option>
+                    <option value="Daily Life">Daily Routine & Hobbies</option>
+                </select>
+            </div>
+
+            <button class="btn btn-primary" id="generateLessonBtn" style="height: 46px;">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Custom Lesson
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Generated Lesson Panel Container -->
+<div id="lessonContainer" style="display: none;">
+    <div class="dashboard-grid">
+        <!-- Dialogue Script -->
+        <div class="glass-card" style="padding: 28px;">
+            <h2 id="lessonTitle" style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Lesson Title</h2>
+            <p id="lessonIntro" style="color: var(--text-secondary); font-size: 14px; margin-bottom: 24px;">Introduction
+                text...</p>
+
+            <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--color-primary);">Practice
+                Dialogue Script</h3>
+            <div id="dialogueScript"
+                style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 24px; max-height: 350px; overflow-y: auto; padding-right: 10px;">
+                <!-- Filled dynamically -->
+            </div>
+
+            <div class="better-phrase-box" id="practicePromptBox">
+                <strong>Practice Prompt:</strong> <span id="practicePromptText">Prompt text...</span>
+            </div>
+        </div>
+
+        <!-- Vocabulary & Phrases Card -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="glass-card" style="padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 15px;">Key Vocabulary</h3>
+                <div id="lessonVocabList" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <a href="{{ url_for('views.chat') }}" class="btn btn-primary" style="width: 100%;">
+                <i class="fa-solid fa-comments"></i> Start Conversation Practice
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Empty lesson splash screen -->
+<div class="glass-card" id="lessonPlaceholder" style="padding: 60px 40px; text-align: center;">
+    <i class="fa-solid fa-chalkboard-user"
+        style="font-size: 50px; color: var(--text-secondary); margin-bottom: 20px;"></i>
+    <h3>Select a Topic and Generate</h3>
+    <p
+        style="color: var(--text-secondary); font-size: 14px; margin-top: 8px; max-width: 500px; margin-left: auto; margin-right: auto;">
+        We will customize dialogue scripts, phrases, and talking challenges targeting your English level.
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Wire up events dynamically
+    document.getElementById("generateLessonBtn").addEventListener("click", function () {
+        const difficulty = document.getElementById("lessonDifficulty").value;
+        const topic = document.getElementById("lessonTopic").value;
+
+        // Show loading state
+        const btn = document.getElementById("generateLessonBtn");
+        const origText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Generating...`;
+
+        fetch(`/api/chat/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `Generate a short vocabulary daily lesson with a structured dialogue script, key vocabulary phrases, and speaking prompts about the topic: '${topic}' at difficulty: '${difficulty}'. Please structure your reply in JSON matching the daily lesson response schema.` })
+        })
+            .then(res => res.json())
+            .then(lessonData => {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+
+                let parsedData;
+                try {
+                    let cleanText = lessonData.reply || "";
+                    if (cleanText.includes("{")) {
+                        const start = cleanText.indexOf("{");
+                        const end = cleanText.lastIndexOf("}") + 1;
+                        parsedData = JSON.parse(cleanText.substring(start, end));
+                    } else {
+                        parsedData = {
+                            title: `Discussing ${topic}`,
+                            intro: `Practice speaking about ${topic} naturally.`,
+                            dialogue: [
+                                { speaker: "Tutor", line: `Let's discuss ${topic}. What are your views?` },
+                                { speaker: "Student", line: `I think it is very interesting to discuss this.` }
+                            ],
+                            key_phrases: [
+                                { phrase: topic, meaning: `Main topic of this lesson`, context: `Focus keyword` }
+                            ],
+                            practice_prompt: `Can you state three items you associate with ${topic}?`
+                        };
+                    }
+                } catch (e) {
+                    parsedData = {
+                        title: `Discussing ${topic}`,
+                        intro: `Practice speaking about ${topic} naturally.`,
+                        dialogue: [
+                            { speaker: "Tutor", line: `Let's discuss ${topic}. What are your views?` },
+                            { speaker: "Student", line: `I think it is very interesting to discuss this.` }
+                        ],
+                        key_phrases: [
+                            { phrase: topic, meaning: `Main topic of this lesson`, context: `Focus keyword` }
+                        ],
+                        practice_prompt: `Can you state three items you associate with ${topic}?`
+                    };
+                }
+
+                // Render Dialogue
+                document.getElementById("lessonTitle").innerText = parsedData.title || `Discussing ${topic}`;
+                document.getElementById("lessonIntro").innerText = parsedData.intro || `Practice speaking about ${topic}.`;
+
+                let dialogHtml = "";
+                if (Array.isArray(parsedData.dialogue)) {
+                    parsedData.dialogue.forEach(line => {
+                        const isTutor = line.speaker === 'Tutor' || line.speaker === 'Coach';
+                        const color = isTutor ? 'var(--color-primary)' : 'var(--color-success)';
+                        dialogHtml += `
+                        <div style="padding: 10px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border-left: 3px solid ${color}">
+                            <strong style="font-size: 13px; color: ${color}">${line.speaker || 'Speaker'}:</strong>
+                            <p style="font-size: 14px; margin-top: 4px;">${line.line || ''}</p>
+                        </div>
+                    `;
+                    });
+                }
+                document.getElementById("dialogueScript").innerHTML = dialogHtml;
+
+                // Render key phrases
+                let phrasesHtml = "";
+                if (Array.isArray(parsedData.key_phrases)) {
+                    parsedData.key_phrases.forEach(phrase => {
+                        phrasesHtml += `
+                        <div style="border-bottom: 1px solid var(--border-glass); padding-bottom: 8px; margin-bottom: 8px;">
+                            <strong style="font-size: 14px; color: var(--text-primary);">${phrase.phrase || ''}</strong>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${phrase.meaning || ''}</p>
+                            <em style="font-size: 11px; color: var(--color-primary);">${phrase.context || ''}</em>
+                        </div>
+                    `;
+                    });
+                }
+                document.getElementById("lessonVocabList").innerHTML = phrasesHtml;
+                document.getElementById("practicePromptText").innerText = parsedData.practice_prompt || `Discuss your thoughts on ${topic}.`;
+
+                document.getElementById("lessonPlaceholder").style.display = "none";
+                document.getElementById("lessonContainer").style.display = "block";
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+                console.error("Lesson generation error:", err);
+                alert("Failed to load lesson content. Please try again.");
+            });
+    });
+</script>
+{% endblock %}

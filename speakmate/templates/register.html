@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Register - SpeakMate AI{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: center; min-height: 90vh; padding: 20px 0;">
+    <div class="glass-card" style="width: 100%; max-width: 480px; padding: 40px; border-radius: 20px;">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <i class="fa-solid fa-user-plus" style="font-size: 36px; color: var(--color-primary); filter: drop-shadow(0 0 10px var(--color-primary));"></i>
+            <h2 style="font-size: 24px; font-weight: 700; margin-top: 15px;">Create Your Account</h2>
+            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 6px;">Start personalized speaking feedback today</p>
+        </div>
+        
+        <form action="{{ url_for('auth.register') }}" method="POST" id="registerForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username" class="form-input" placeholder="e.g. learner123" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" name="email" id="email" class="form-input" placeholder="you@example.com" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" name="password" id="password" class="form-input" placeholder="••••••••" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="target_level">Target Fluency</label>
+                    <select name="target_level" id="target_level" class="form-select">
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate" selected>Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="focus_area">Primary Focus</label>
+                    <select name="focus_area" id="focus_area" class="form-select">
+                        <option value="General Conversation" selected>General Speaking</option>
+                        <option value="Business English">Business/Corporate</option>
+                        <option value="Interview Practice">Job Interviews</option>
+                        <option value="Public Speaking">Public Speaking</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
+                <i class="fa-solid fa-graduation-cap"></i> Register & Get Started
+            </button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 20px; font-size: 14px;">
+            <span style="color: var(--text-secondary);">Already have an account?</span>
+            <a href="{{ url_for('auth.login') }}" style="color: var(--color-primary); font-weight: 600; text-decoration: none; margin-left: 5px;">Log In</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

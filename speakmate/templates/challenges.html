@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block page_title %}Speaking Challenges{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Left Panel: Select and record challenge -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px;">Choose a Challenge</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+                <button class="btn btn-secondary" onclick="startChallenge('Picture Description')">
+                    <i class="fa-solid fa-image" style="color: var(--color-primary);"></i> Picture Description
+                </button>
+                <button class="btn btn-secondary" onclick="startChallenge('Storytelling')">
+                    <i class="fa-solid fa-book-open-reader" style="color: var(--color-primary);"></i> Storytelling
+                </button>
+                <button class="btn btn-secondary" onclick="startChallenge('One Minute Speech')">
+                    <i class="fa-solid fa-stopwatch" style="color: var(--color-primary);"></i> One Minute Speech
+                </button>
+                <button class="btn btn-secondary" onclick="startChallenge('Opinion Debate')">
+                    <i class="fa-solid fa-scale-balanced" style="color: var(--color-primary);"></i> Opinion Debate
+                </button>
+            </div>
+        </div>
+
+        <!-- Challenge Playboard -->
+        <div class="glass-card" style="padding: 28px; display: none;" id="challengeWorkspace">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="challengeTitle" style="font-weight: 700; font-size: 18px; color: var(--color-primary);">A Busy Street Market</h3>
+                <span class="streak-badge" id="challengeTimer" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: var(--color-danger);">
+                    <i class="fa-solid fa-clock"></i> 60s
+                </span>
+            </div>
+            
+            <p id="challengeInstructions" style="font-size: 14px; color: var(--text-primary); margin-bottom: 16px;">
+                Explain what you see in the photo description or outline...
+            </p>
+            
+            <div class="better-phrase-box" style="margin-bottom: 24px;" id="targetVocabBox">
+                <strong>Try using these words:</strong> <span id="targetVocabList">word1, word2</span>
+            </div>
+
+            <!-- Speech Recording Controls -->
+            <div style="display: flex; flex-direction: column; gap: 15px; align-items: center; margin-top: 15px;">
+                <button class="mic-btn" id="challengeMicBtn" style="width: 70px; height: 70px; font-size: 30px;" title="Hold or press to record speech transcript">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+                <span id="recordingStatus" style="font-size: 13px; color: var(--text-secondary);">Click microphone to start recording</span>
+                
+                <textarea id="challengeTextarea" class="form-input" style="width: 100%; min-height: 120px; font-size: 14px; margin-top: 10px;" placeholder="Speaking transcript appears here. Correct or edit it if the microphone misheard you."></textarea>
+                
+                <button class="btn btn-primary" id="submitChallengeBtn" style="width: 100%;">
+                    <i class="fa-solid fa-check"></i> Submit Response for Grading
+                </button>
+            </div>
+        </div>
+
+        <!-- Placeholder splash -->
+        <div class="glass-card" id="challengePlaceholder" style="padding: 60px 40px; text-align: center;">
+            <i class="fa-solid fa-trophy" style="font-size: 54px; color: var(--text-secondary); margin-bottom: 20px;"></i>
+            <h3>Choose a challenge prompt</h3>
+            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 8px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                Tackle picture descriptions or timed one-minute opinion debates. Submit your speech and receive metrics mapped against IELTS scoring criteria.
+            </p>
+        </div>
+    </div>
+
+    <!-- Right Panel: Challenge Results metrics history -->
+    <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; gap: 15px;">
+        <h3 style="font-size: 16px; font-weight: 700;">Challenge Evaluation</h3>
+        <div id="challengeGradingPanel" style="display: flex; flex-direction: column; gap: 15px;">
+            <div style="text-align: center; padding: 30px 10px; color: var(--text-secondary);">
+                <i class="fa-solid fa-chart-line" style="font-size: 32px; margin-bottom: 10px;"></i>
+                <p style="font-size: 13px;">Scores for vocabulary choices, fluency rate, and pronunciation tips will appear here after grading.</p>
+            </div>
+        </div>
+        
+        <h3 style="font-size: 15px; font-weight: 700; margin-top: 15px;">Challenge History</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto;" id="challengeHistoryList">
+            {% if challenges %}
+                {% for c in challenges %}
+                <div class="glass-card" style="padding: 10px 14px; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>{{ c.challenge_type }}</strong>
+                        <span style="color: var(--color-primary); font-weight: 700;">{{ c.score }}%</span>
+                    </div>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">{{ c.prompt_text }}</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px;">No completed challenges recorded.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/challenges.js') }}"></script>
+{% endblock %}
