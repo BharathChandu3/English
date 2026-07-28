@@ -1,7 +1,7 @@
 import json
 from flask import Blueprint, request, jsonify, session
-from datetime import date
-from speakmate.database import get_db_context
+from datetime import date, datetime
+from speakmate.models import db, User, Progress, ConversationHistory, Achievement, Grammar, Vocabulary, InterviewScore, DailyChallenge, AIMemory
 from speakmate.services.gemini_service import GeminiService
 from speakmate.services.memory_service import MemoryService
 
@@ -23,31 +23,38 @@ def update_progress_metric(user_id, metric_name, value):
     Ensures charts reflect progress changes dynamically.
     """
     today_str = date.today().strftime("%Y-%m-%d")
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM progress WHERE user_id = ? AND date = ?;", (user_id, today_str))
-        row = cursor.fetchone()
-        
+    try:
+        row = Progress.query.filter_by(user_id=user_id, date=today_str).first()
         if row:
-            cursor.execute(f"""
-            UPDATE progress SET {metric_name} = ? WHERE user_id = ? AND date = ?;
-            """, (value, user_id, today_str))
+            setattr(row, metric_name, value)
         else:
-            cursor.execute("SELECT * FROM progress WHERE user_id = ? ORDER BY date DESC LIMIT 1;", (user_id,))
-            last = cursor.fetchone()
+            last = Progress.query.filter_by(user_id=user_id).order_by(Progress.date.desc()).first()
+            grammar = last.grammar_score if last else 50
+            vocab = last.vocab_score if last else 50
+            speaking = last.speaking_score if last else 50
+            confidence = last.confidence_score if last else 50
             
-            grammar = last["grammar_score"] if last else 50
-            vocab = last["vocab_score"] if last else 50
-            speaking = last["speaking_score"] if last else 50
-            confidence = last["confidence_score"] if last else 50
-            
-            scores = {"grammar_score": grammar, "vocab_score": vocab, "speaking_score": speaking, "confidence_score": confidence}
+            scores = {
+                "grammar_score": grammar,
+                "vocab_score": vocab,
+                "speaking_score": speaking,
+                "confidence_score": confidence
+            }
             scores[metric_name] = value
             
-            cursor.execute("""
-            INSERT INTO progress (user_id, grammar_score, vocab_score, speaking_score, confidence_score, date)
-            VALUES (?, ?, ?, ?, ?, ?);
-            """, (user_id, scores["grammar_score"], scores["vocab_score"], scores["speaking_score"], scores["confidence_score"], today_str))
+            new_progress = Progress(
+                user_id=user_id,
+                grammar_score=scores["grammar_score"],
+                vocab_score=scores["vocab_score"],
+                speaking_score=scores["speaking_score"],
+                confidence_score=scores["confidence_score"],
+                date=today_str
+            )
+            db.session.add(new_progress)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating progress metric: {e}")
 
 # ----------------- AI CHAT API -----------------
 
@@ -61,35 +68,26 @@ def chat_send():
     if not message:
         return jsonify({"error": "Message content is empty."}), 400
         
-    # 1. Fetch recent conversation history (closes connection immediately)
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        SELECT role, content FROM conversation_history 
-        WHERE user_id = ? 
-        ORDER BY id DESC LIMIT 10;
-        """, (user_id,))
-        history_rows = cursor.fetchall()
-        history = [{"role": r["role"], "content": r["content"]} for r in reversed(history_rows)]
+    # 1. Fetch recent conversation history
+    history_rows = ConversationHistory.query.filter_by(user_id=user_id).order_by(ConversationHistory.id.desc()).limit(10).all()
+    history = [{"role": r.role, "content": r.content} for r in reversed(history_rows)]
     
     # 2. Get user memory weaknesses
     memory_summary = MemoryService.get_memory_summary(user_id)
     
-    # 3. Call Gemini API (NO DB CONNECTION IS HELD OPEN DURING NETWORK WAIT)
+    # 3. Call Gemini API
     coach_response = GeminiService.get_conversation_feedback(history, message, memory_summary)
     
     # 4. Save User Message & AI reply
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        INSERT INTO conversation_history (user_id, role, content)
-        VALUES (?, 'user', ?);
-        """, (user_id, message))
-        
-        cursor.execute("""
-        INSERT INTO conversation_history (user_id, role, content, analysis_json)
-        VALUES (?, 'assistant', ?, ?);
-        """, (user_id, coach_response["reply"], json.dumps(coach_response)))
+    try:
+        user_msg = ConversationHistory(user_id=user_id, role='user', content=message)
+        ai_msg = ConversationHistory(user_id=user_id, role='assistant', content=coach_response["reply"], analysis_json=json.dumps(coach_response))
+        db.session.add(user_msg)
+        db.session.add(ai_msg)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving chat log: {e}")
     
     # 5. Update AI Memory in database
     MemoryService.update_memory_from_feedback(user_id, coach_response)
@@ -109,17 +107,22 @@ def chat_send():
     return jsonify(coach_response)
 
 def check_and_unlock_chat_achievements(user_id):
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT count(*) FROM conversation_history WHERE user_id = ? AND role = 'user';", (user_id,))
-        count = cursor.fetchone()[0]
-        
+    try:
+        count = ConversationHistory.query.filter_by(user_id=user_id, role='user').count()
         if count >= 10:
-            cursor.execute("""
-            INSERT INTO achievements (user_id, title, description, badge_icon)
-            VALUES (?, 'Chatterbox', 'Exchanged 10+ conversation messages with your tutor.', '💬')
-            ON CONFLICT(user_id, title) DO NOTHING;
-            """, (user_id,))
+            existing = Achievement.query.filter_by(user_id=user_id, title='Chatterbox').first()
+            if not existing:
+                achievement = Achievement(
+                    user_id=user_id,
+                    title='Chatterbox',
+                    description='Exchanged 10+ conversation messages with your tutor.',
+                    badge_icon='💬'
+                )
+                db.session.add(achievement)
+                db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking chat achievement: {e}")
 
 # ----------------- GRAMMAR TEACHER API -----------------
 
@@ -144,19 +147,39 @@ def grammar_submit():
     elif score >= 60:
         mastery = "Intermediate"
         
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        INSERT INTO grammar (user_id, topic, score, mastery_level, last_studied)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id, topic) DO UPDATE SET
-        score = MAX(score, EXCLUDED.score),
-        mastery_level = EXCLUDED.mastery_level,
-        last_studied = CURRENT_TIMESTAMP;
-        """, (user_id, topic, score, mastery))
+    try:
+        existing = Grammar.query.filter_by(user_id=user_id, topic=topic).first()
+        if existing:
+            existing.score = max(existing.score, score)
+            existing.mastery_level = mastery
+            existing.last_studied = datetime.utcnow()
+        else:
+            new_grammar = Grammar(
+                user_id=user_id,
+                topic=topic,
+                score=score,
+                mastery_level=mastery,
+                last_studied=datetime.utcnow()
+            )
+            db.session.add(new_grammar)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving grammar score: {e}")
     
     update_progress_metric(user_id, "grammar_score", score)
     return jsonify({"status": "success", "mastery": mastery})
+
+# ----------------- DAILY LESSON API -----------------
+
+@api_bp.route("/lesson/generate", methods=["POST"])
+@api_login_required
+def lesson_generate():
+    data = request.json or {}
+    difficulty = data.get("difficulty", "Intermediate")
+    topic = data.get("topic", "Travel")
+    lesson_data = GeminiService.generate_daily_lesson(difficulty, topic)
+    return jsonify(lesson_data)
 
 # ----------------- VOCABULARY BUILDER API -----------------
 
@@ -166,11 +189,8 @@ def vocab_daily():
     user_id = session["user_id"]
     category = request.args.get("category", "General")
     
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT target_level FROM users WHERE id = ?;", (user_id,))
-        user_row = cursor.fetchone()
-        level = user_row["target_level"] if user_row else "Intermediate"
+    user_row = User.query.get(user_id)
+    level = user_row.target_level if user_row else "Intermediate"
     
     word_data = GeminiService.get_vocab_word(level, category)
     return jsonify(word_data)
@@ -190,21 +210,41 @@ def vocab_save():
         return jsonify({"error": "Word is missing."}), 400
         
     try:
-        with get_db_context() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-            INSERT INTO vocabulary (user_id, word, meaning, synonyms, antonyms, examples, saved)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
-            ON CONFLICT(user_id, word) DO UPDATE SET saved = 1;
-            """, (user_id, word, meaning, synonyms, antonyms, examples))
+        existing = Vocabulary.query.filter_by(user_id=user_id, word=word).first()
+        if existing:
+            existing.saved = 1
+            existing.meaning = meaning
+            existing.synonyms = synonyms
+            existing.antonyms = antonyms
+            existing.examples = examples
+            existing.last_reviewed = datetime.utcnow()
+        else:
+            new_vocab = Vocabulary(
+                user_id=user_id,
+                word=word,
+                meaning=meaning,
+                synonyms=synonyms,
+                antonyms=antonyms,
+                examples=examples,
+                saved=1,
+                last_reviewed=datetime.utcnow()
+            )
+            db.session.add(new_vocab)
             
-            cursor.execute("""
-            INSERT INTO achievements (user_id, title, description, badge_icon)
-            VALUES (?, 'Word Collector', 'Saved your first vocabulary word.', '📚')
-            ON CONFLICT(user_id, title) DO NOTHING;
-            """, (user_id,))
+        existing_ach = Achievement.query.filter_by(user_id=user_id, title='Word Collector').first()
+        if not existing_ach:
+            ach = Achievement(
+                user_id=user_id,
+                title='Word Collector',
+                description='Saved your first vocabulary word.',
+                badge_icon='📚'
+            )
+            db.session.add(ach)
+            
+        db.session.commit()
         return jsonify({"status": "success", "message": "Word saved successfully."})
     except Exception as e:
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 @api_bp.route("/vocab/unsave", methods=["POST"])
@@ -213,9 +253,15 @@ def vocab_unsave():
     user_id = session["user_id"]
     word = request.json.get("word")
     
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE vocabulary SET saved = 0 WHERE user_id = ? AND word = ?;", (user_id, word))
+    try:
+        existing = Vocabulary.query.filter_by(user_id=user_id, word=word).first()
+        if existing:
+            existing.saved = 0
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error unsaving word: {e}")
+        
     return jsonify({"status": "success", "message": "Word removed from vocabulary."})
 
 @api_bp.route("/vocab/submit_quiz", methods=["POST"])
@@ -262,16 +308,25 @@ def interview_answer():
     history = session.get("interview_history", [])
     mode = session.get("interview_mode", "HR")
     
-    # Evaluate using Gemini (NO DB CONNECTION HELD OPEN)
+    # Evaluate using Gemini
     result = GeminiService.get_interview_response(mode, history, user_message)
     
     # Log scores in DB
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        INSERT INTO interview_scores (user_id, mode, score, confidence, grammar, professionalism, suggestions)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
-        """, (user_id, mode, result["score"], result["confidence"], result["grammar"], result["professionalism"], result["suggestions"]))
+    try:
+        new_score = InterviewScore(
+            user_id=user_id,
+            mode=mode,
+            score=result["score"],
+            confidence=result["confidence"],
+            grammar=result["grammar"],
+            professionalism=result["professionalism"],
+            suggestions=result["suggestions"]
+        )
+        db.session.add(new_score)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving interview score: {e}")
     
     # Add to session interview context
     history.append({"role": "user", "content": user_message})
@@ -307,18 +362,31 @@ def challenge_submit():
         
     evaluation = GeminiService.evaluate_challenge_response(title, instructions, user_response)
     
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        INSERT INTO daily_challenges (user_id, challenge_type, prompt_text, user_response, score, feedback_json)
-        VALUES (?, ?, ?, ?, ?, ?);
-        """, (user_id, challenge_type, title, user_response, evaluation["score"], json.dumps(evaluation)))
+    try:
+        new_challenge = DailyChallenge(
+            user_id=user_id,
+            challenge_type=challenge_type,
+            prompt_text=title,
+            user_response=user_response,
+            score=evaluation["score"],
+            feedback_json=json.dumps(evaluation)
+        )
+        db.session.add(new_challenge)
         
-        cursor.execute("""
-        INSERT INTO achievements (user_id, title, description, badge_icon)
-        VALUES (?, 'Challenger', 'Completed a speaking challenge.', '🏆')
-        ON CONFLICT(user_id, title) DO NOTHING;
-        """, (user_id,))
+        existing_ach = Achievement.query.filter_by(user_id=user_id, title='Challenger').first()
+        if not existing_ach:
+            ach = Achievement(
+                user_id=user_id,
+                title='Challenger',
+                description='Completed a speaking challenge.',
+                badge_icon='🏆'
+            )
+            db.session.add(ach)
+            
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving daily challenge: {e}")
     
     update_progress_metric(user_id, "speaking_score", evaluation["score"])
     update_progress_metric(user_id, "grammar_score", evaluation["grammar_score"])
@@ -331,15 +399,7 @@ def challenge_submit():
 @api_login_required
 def progress_history():
     user_id = session["user_id"]
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        SELECT date, grammar_score, vocab_score, speaking_score, confidence_score 
-        FROM progress 
-        WHERE user_id = ? 
-        ORDER BY date ASC LIMIT 15;
-        """, (user_id,))
-        rows = cursor.fetchall()
+    rows = Progress.query.filter_by(user_id=user_id).order_by(Progress.date.asc()).limit(15).all()
     
     labels = []
     grammar = []
@@ -348,11 +408,11 @@ def progress_history():
     confidence = []
     
     for r in rows:
-        labels.append(r["date"])
-        grammar.append(r["grammar_score"])
-        vocab.append(r["vocab_score"])
-        speaking.append(r["speaking_score"])
-        confidence.append(r["confidence_score"])
+        labels.append(r.date)
+        grammar.append(r.grammar_score)
+        vocab.append(r.vocab_score)
+        speaking.append(r.speaking_score)
+        confidence.append(r.confidence_score)
         
     return jsonify({
         "labels": labels,
@@ -370,11 +430,15 @@ def profile_update():
     target_level = data.get("target_level", "Intermediate")
     focus_area = data.get("focus_area", "General Conversation")
     
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        UPDATE users SET target_level = ?, focus_area = ? WHERE id = ?;
-        """, (target_level, focus_area, user_id))
+    try:
+        user = User.query.get(user_id)
+        if user:
+            user.target_level = target_level
+            user.focus_area = focus_area
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
     
     session["target_level"] = target_level
     session["focus_area"] = focus_area
@@ -386,18 +450,19 @@ def profile_update():
 def settings_reset():
     user_id = session["user_id"]
     
-    with get_db_context() as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM conversation_history WHERE user_id = ?;", (user_id,))
-        cursor.execute("DELETE FROM ai_memory WHERE user_id = ?;", (user_id,))
+    try:
+        ConversationHistory.query.filter_by(user_id=user_id).delete()
+        AIMemory.query.filter_by(user_id=user_id).delete()
         
         welcome_text = (
             "👋 Welcome back! I've reset our conversation memory.\n\n"
             "Let's start fresh. Please introduce yourself in a few sentences, and we will begin."
         )
-        cursor.execute("""
-        INSERT INTO conversation_history (user_id, role, content)
-        VALUES (?, 'assistant', ?);
-        """, (user_id, welcome_text))
+        welcome_chat = ConversationHistory(user_id=user_id, role='assistant', content=welcome_text)
+        db.session.add(welcome_chat)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
     
     return jsonify({"status": "success", "message": "Memory reset successfully."})

@@ -9,13 +9,8 @@ from speakmate.routes.api import api_bp
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Ensure the instance or database path folder exists
-db_dir = os.path.dirname(Config.DB_PATH)
-if db_dir and not os.path.exists(db_dir):
-    os.makedirs(db_dir, exist_ok=True)
-
-# Initialize Database tables
-init_db()
+# Initialize Database with Flask app
+init_db(app)
 
 # Register Blueprints
 app.register_blueprint(auth_bp)
@@ -31,5 +26,4 @@ def server_error(e):
     return render_template("landing.html", error_message="500 - Internal Server Error"), 500
 
 if __name__ == "__main__":
-    # Host on 0.0.0.0 to enable local network testing if requested
     app.run(host="127.0.0.1", port=5000, debug=True)

@@ -100,51 +100,15 @@
         btn.disabled = true;
         btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Generating...`;
 
-        fetch(`/api/chat/send`, {
+        fetch(`/api/lesson/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `Generate a short vocabulary daily lesson with a structured dialogue script, key vocabulary phrases, and speaking prompts about the topic: '${topic}' at difficulty: '${difficulty}'. Please structure your reply in JSON matching the daily lesson response schema.` })
+            body: JSON.stringify({ difficulty: difficulty, topic: topic })
         })
             .then(res => res.json())
-            .then(lessonData => {
+            .then(parsedData => {
                 btn.disabled = false;
                 btn.innerHTML = origText;
-
-                let parsedData;
-                try {
-                    let cleanText = lessonData.reply || "";
-                    if (cleanText.includes("{")) {
-                        const start = cleanText.indexOf("{");
-                        const end = cleanText.lastIndexOf("}") + 1;
-                        parsedData = JSON.parse(cleanText.substring(start, end));
-                    } else {
-                        parsedData = {
-                            title: `Discussing ${topic}`,
-                            intro: `Practice speaking about ${topic} naturally.`,
-                            dialogue: [
-                                { speaker: "Tutor", line: `Let's discuss ${topic}. What are your views?` },
-                                { speaker: "Student", line: `I think it is very interesting to discuss this.` }
-                            ],
-                            key_phrases: [
-                                { phrase: topic, meaning: `Main topic of this lesson`, context: `Focus keyword` }
-                            ],
-                            practice_prompt: `Can you state three items you associate with ${topic}?`
-                        };
-                    }
-                } catch (e) {
-                    parsedData = {
-                        title: `Discussing ${topic}`,
-                        intro: `Practice speaking about ${topic} naturally.`,
-                        dialogue: [
-                            { speaker: "Tutor", line: `Let's discuss ${topic}. What are your views?` },
-                            { speaker: "Student", line: `I think it is very interesting to discuss this.` }
-                        ],
-                        key_phrases: [
-                            { phrase: topic, meaning: `Main topic of this lesson`, context: `Focus keyword` }
-                        ],
-                        practice_prompt: `Can you state three items you associate with ${topic}?`
-                    };
-                }
 
                 // Render Dialogue
                 document.getElementById("lessonTitle").innerText = parsedData.title || `Discussing ${topic}`;

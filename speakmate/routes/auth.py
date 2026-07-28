@@ -1,60 +1,57 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
-from speakmate.database import get_db_context
+from speakmate.models import db, User, Achievement, Progress, ConversationHistory
 
 auth_bp = Blueprint("auth", __name__)
 
 def update_daily_streak(user_id):
     """
     Updates the user's daily streak count when they log in or perform actions.
-    If they active today, streak stays. If yesterday, increment. If older, reset to 1.
+    If active today, streak stays. If yesterday, increment. If older, reset to 1.
     """
     try:
-        with get_db_context() as conn:
-            cursor = conn.cursor()
+        user = User.query.get(user_id)
+        if not user:
+            return
             
-            cursor.execute("SELECT streak_count, last_active_date FROM users WHERE id = ?;", (user_id,))
-            user = cursor.fetchone()
-            
-            if not user:
-                return
-                
-            current_streak = user['streak_count'] or 0
-            last_active_str = user['last_active_date']
-            
-            today = date.today()
-            today_str = today.strftime("%Y-%m-%d")
-            
-            if not last_active_str:
-                # First active day
-                new_streak = 1
-                cursor.execute("UPDATE users SET streak_count = ?, last_active_date = ? WHERE id = ?;", (new_streak, today_str, user_id))
-            else:
+        current_streak = user.streak_count or 0
+        last_active_str = user.last_active_date
+        
+        today = date.today()
+        today_str = today.strftime("%Y-%m-%d")
+        
+        if not last_active_str:
+            new_streak = 1
+            user.streak_count = new_streak
+            user.last_active_date = today_str
+        else:
+            try:
                 last_active = datetime.strptime(last_active_str, "%Y-%m-%d").date()
                 delta = (today - last_active).days
+            except ValueError:
+                delta = 2
+
+            if delta == 1:
+                new_streak = current_streak + 1
+                user.streak_count = new_streak
+                user.last_active_date = today_str
+                unlock_streak_achievements(user_id, new_streak)
+            elif delta > 1:
+                new_streak = 1
+                user.streak_count = new_streak
+                user.last_active_date = today_str
+            else:
+                new_streak = current_streak
+                user.last_active_date = today_str
                 
-                if delta == 1:
-                    # Active consecutive day
-                    new_streak = current_streak + 1
-                    cursor.execute("UPDATE users SET streak_count = ?, last_active_date = ? WHERE id = ?;", (new_streak, today_str, user_id))
-                    
-                    # Check for streak achievements
-                    unlock_streak_achievements(user_id, new_streak, cursor)
-                elif delta > 1:
-                    # Streak broken
-                    new_streak = 1
-                    cursor.execute("UPDATE users SET streak_count = ?, last_active_date = ? WHERE id = ?;", (new_streak, today_str, user_id))
-                else:
-                    # Already active today, maintain streak
-                    new_streak = current_streak
-                    cursor.execute("UPDATE users SET last_active_date = ? WHERE id = ?;", (today_str, user_id))
-                    
-            session['streak_count'] = new_streak
+        db.session.commit()
+        session['streak_count'] = new_streak
     except Exception as e:
+        db.session.rollback()
         print(f"Error updating streak: {e}")
 
-def unlock_streak_achievements(user_id, streak, cursor):
+def unlock_streak_achievements(user_id, streak):
     """Helper to unlock achievements based on streak milestones."""
     milestones = {
         3: ("Consistency Starter", "Studied for 3 consecutive days!", "🔥"),
@@ -64,11 +61,10 @@ def unlock_streak_achievements(user_id, streak, cursor):
     
     if streak in milestones:
         title, desc, icon = milestones[streak]
-        cursor.execute("""
-        INSERT INTO achievements (user_id, title, description, badge_icon)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id, title) DO NOTHING;
-        """, (user_id, title, desc, icon))
+        existing = Achievement.query.filter_by(user_id=user_id, title=title).first()
+        if not existing:
+            achievement = Achievement(user_id=user_id, title=title, description=desc, badge_icon=icon)
+            db.session.add(achievement)
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
@@ -88,54 +84,68 @@ def register():
             
         password_hash = generate_password_hash(password)
         
-        with get_db_context() as conn:
-            cursor = conn.cursor()
+        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
+        if existing_user:
+            flash("Username or Email already registered.", "error")
+            return render_template("register.html")
             
-            # Check if user already exists
-            cursor.execute("SELECT id FROM users WHERE username = ? OR email = ?;", (username, email))
-            if cursor.fetchone():
-                flash("Username or Email already registered.", "error")
-                return render_template("register.html")
-                
-            try:
-                cursor.execute("""
-                INSERT INTO users (username, email, password_hash, target_level, focus_area, streak_count, last_active_date)
-                VALUES (?, ?, ?, ?, ?, 1, ?);
-                """, (username, email, password_hash, target_level, focus_area, date.today().strftime("%Y-%m-%d")))
-                
-                user_id = cursor.lastrowid
-                
-                # Create a welcoming achievement
-                cursor.execute("""
-                INSERT INTO achievements (user_id, title, description, badge_icon)
-                VALUES (?, 'Hello World!', 'Completed registration and started your English journey.', '🚀');
-                """, (user_id,))
-                
-                # Setup initial progress metric
-                cursor.execute("""
-                INSERT INTO progress (user_id, grammar_score, vocab_score, speaking_score, confidence_score, date)
-                VALUES (?, 50, 50, 50, 50, ?);
-                """, (user_id, date.today().strftime("%Y-%m-%d")))
-                
-                # Setup first welcome conversation history
-                welcome_text = (
-                    "👋 Welcome to SpeakMate AI!\n\n"
-                    "I'm your personal AI English Coach. My goal is to help you become a fluent "
-                    "and confident English speaker. Don't worry about making mistakes. Let's begin!\n\n"
-                    "Please introduce yourself in 5–10 sentences. I'll analyze your response."
-                )
-                cursor.execute("""
-                INSERT INTO conversation_history (user_id, role, content)
-                VALUES (?, 'assistant', ?);
-                """, (user_id, welcome_text))
-                
-                flash("Registration successful! Please log in.", "success")
-                return redirect(url_for("auth.login"))
-                
-            except Exception as e:
-                flash("An error occurred during registration.", "error")
-                print(f"Registration Error: {e}")
-                
+        try:
+            today_str = date.today().strftime("%Y-%m-%d")
+            new_user = User(
+                username=username,
+                email=email,
+                password_hash=password_hash,
+                target_level=target_level,
+                focus_area=focus_area,
+                streak_count=1,
+                last_active_date=today_str
+            )
+            db.session.add(new_user)
+            db.session.flush() # Populate new_user.id
+            
+            # Welcome achievement
+            welcome_badge = Achievement(
+                user_id=new_user.id,
+                title="Hello World!",
+                description="Completed registration and started your English journey.",
+                badge_icon="🚀"
+            )
+            db.session.add(welcome_badge)
+            
+            # Initial progress snapshot
+            init_progress = Progress(
+                user_id=new_user.id,
+                grammar_score=50,
+                vocab_score=50,
+                speaking_score=50,
+                confidence_score=50,
+                date=today_str
+            )
+            db.session.add(init_progress)
+            
+            # Initial welcome message in conversation history
+            welcome_text = (
+                "👋 Welcome to SpeakMate AI!\n\n"
+                "I'm your personal AI English Coach. My goal is to help you become a fluent "
+                "and confident English speaker. Don't worry about making mistakes. Let's begin!\n\n"
+                "Please introduce yourself in 5–10 sentences. I'll analyze your response."
+            )
+            welcome_chat = ConversationHistory(
+                user_id=new_user.id,
+                role="assistant",
+                content=welcome_text
+            )
+            db.session.add(welcome_chat)
+            
+            db.session.commit()
+            flash("Registration successful! Please log in.", "success")
+            return redirect(url_for("auth.login"))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash("An error occurred during registration.", "error")
+            print(f"Registration Error: {e}")
+            
     return render_template("register.html")
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -151,19 +161,16 @@ def login():
             flash("Please enter both username and password.", "error")
             return render_template("login.html")
             
-        with get_db_context() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE username = ? OR email = ?;", (username, username))
-            user = cursor.fetchone()
+        user = User.query.filter((User.username == username) | (User.email == username)).first()
         
-        if user and check_password_hash(user['password_hash'], password):
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['target_level'] = user['target_level']
-            session['focus_area'] = user['focus_area']
+        if user and check_password_hash(user.password_hash, password):
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['target_level'] = user.target_level
+            session['focus_area'] = user.focus_area
             
             # Refresh daily streak
-            update_daily_streak(user['id'])
+            update_daily_streak(user.id)
             
             return redirect(url_for("views.dashboard"))
         else:
